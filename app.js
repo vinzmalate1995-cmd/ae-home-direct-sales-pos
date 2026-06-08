@@ -120,24 +120,45 @@ const GUEST_BLOCKED_ACTIONS = ['addSale','addProduct','updateProduct','deletePro
   'updateProductQty','stockUpdate','addCashier','updateCashier','deleteCashier',
   'addExpense','deleteExpense','clearTestData','createBackup','restoreBackup'];
 
-async function gasRequest(action, payload = {}) {
+function gasRequest(action, payload = {}) {
   // Block write actions for guest
   if (isGuest() && GUEST_BLOCKED_ACTIONS.includes(action)) {
-    return { ok: true, guest: true };
+    return Promise.resolve({ ok: true, guest: true });
   }
-  if (!GAS_URL) return { ok: false, error: 'No GAS URL' };
-  try {
-    // Use GET with data as URL param — avoids CORS preflight issues
+  if (!GAS_URL) return Promise.resolve({ ok: false, error: 'No GAS URL' });
+
+  return new Promise((resolve) => {
+    // Use JSONP — 100% works with GitHub Pages + Apps Script
+    const cbName = 'cb_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
     const data   = encodeURIComponent(JSON.stringify({ action, ...payload }));
-    const url    = GAS_URL + '?data=' + data;
-    const res    = await fetch(url, { method: 'GET', redirect: 'follow' });
-    const text   = await res.text();
-    try {
-      return JSON.parse(text);
-    } catch(e) {
-      return { ok: false, error: 'Invalid response: ' + text.substring(0,150) };
-    }
-  } catch(e) { setOffline(true); return { ok: false, error: e.message }; }
+    const url    = GAS_URL + '?callback=' + cbName + '&data=' + data;
+
+    // Timeout after 15 seconds
+    const timer = setTimeout(() => {
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+      setOffline(true);
+      resolve({ ok: false, error: 'Request timed out' });
+    }, 15000);
+
+    window[cbName] = function(result) {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+      setOffline(false);
+      resolve(result);
+    };
+
+    const script = document.createElement('script');
+    script.src   = url;
+    script.onerror = function() {
+      clearTimeout(timer);
+      delete window[cbName];
+      setOffline(true);
+      resolve({ ok: false, error: 'Network error' });
+    };
+    document.head.appendChild(script);
+  });
 }
 function setOffline(v) {
   const el = document.getElementById('syncStatus');
