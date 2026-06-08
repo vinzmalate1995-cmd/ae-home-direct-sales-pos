@@ -120,45 +120,25 @@ const GUEST_BLOCKED_ACTIONS = ['addSale','addProduct','updateProduct','deletePro
   'updateProductQty','stockUpdate','addCashier','updateCashier','deleteCashier',
   'addExpense','deleteExpense','clearTestData','createBackup','restoreBackup'];
 
-function gasRequest(action, payload = {}) {
-  // Block write actions for guest
+async function gasRequest(action, payload = {}) {
   if (isGuest() && GUEST_BLOCKED_ACTIONS.includes(action)) {
-    return Promise.resolve({ ok: true, guest: true });
+    return { ok: true, guest: true };
   }
-  if (!GAS_URL) return Promise.resolve({ ok: false, error: 'No GAS URL' });
-
-  return new Promise((resolve) => {
-    // Use JSONP — 100% works with GitHub Pages + Apps Script
-    const cbName = 'cb_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
-    const data   = encodeURIComponent(JSON.stringify({ action, ...payload }));
-    const url    = GAS_URL + '?callback=' + cbName + '&data=' + data;
-
-    // Timeout after 15 seconds
-    const timer = setTimeout(() => {
-      delete window[cbName];
-      if (script.parentNode) script.parentNode.removeChild(script);
-      setOffline(true);
-      resolve({ ok: false, error: 'Request timed out' });
-    }, 15000);
-
-    window[cbName] = function(result) {
-      clearTimeout(timer);
-      delete window[cbName];
-      if (script.parentNode) script.parentNode.removeChild(script);
-      setOffline(false);
-      resolve(result);
-    };
-
-    const script = document.createElement('script');
-    script.src   = url;
-    script.onerror = function() {
-      clearTimeout(timer);
-      delete window[cbName];
-      setOffline(true);
-      resolve({ ok: false, error: 'Network error' });
-    };
-    document.head.appendChild(script);
-  });
+  if (!GAS_URL) return { ok: false, error: 'No GAS URL' };
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action, ...payload }),
+    });
+    // no-cors returns opaque response — use GET fallback for reading
+    const getUrl = GAS_URL + '?data=' + encodeURIComponent(JSON.stringify({ action, ...payload }));
+    const res2   = await fetch(getUrl);
+    const text   = await res2.text();
+    try { return JSON.parse(text); }
+    catch(e) { return { ok: false, error: 'Parse error: ' + text.substring(0,100) }; }
+  } catch(e) { setOffline(true); return { ok: false, error: e.message }; }
 }
 function setOffline(v) {
   const el = document.getElementById('syncStatus');
