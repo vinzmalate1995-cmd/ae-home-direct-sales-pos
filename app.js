@@ -1,8 +1,8 @@
 /* ============================================================
-   AE HOME POS — app.js  v2
+   AE HOME POS — app.js  v3 (FIXED & FULL INTEGRATION)
    + Green/Blue UI | Per piece/pack | Inventory Clerk role
    + Detailed receipt (VAT, SI#, AE HOME branding)
-   + Editable qty in checkout
+   + Editable qty in checkout & Full Safety Element Checks
    ============================================================ */
 'use strict';
 
@@ -189,8 +189,10 @@ function updateUserNavbarUi() {
   if (!session) { if (nav) nav.classList.add('hidden'); return; }
   if (nav) nav.classList.remove('hidden');
 
-  document.getElementById('navUserLabel').innerText = session.name;
-  document.getElementById('navRoleBadge').innerText = session.role.toUpperCase();
+  const nameEl = document.getElementById('navUserLabel');
+  const roleEl = document.getElementById('navRoleBadge');
+  if (nameEl) nameEl.innerText = session.name;
+  if (roleEl) roleEl.innerText = session.role.toUpperCase();
 
   document.querySelectorAll('.role-admin-only').forEach(el => {
     if (session.role === 'admin') el.classList.remove('hidden');
@@ -207,10 +209,15 @@ function getCashierId() { return session ? session.userId : 'N/A'; }
 
 // ── CONFIG MODAL ─────────────────────────────────────────────
 function openConfigModal() {
-  document.getElementById('configGasUrlInput').value = GAS_URL;
-  document.getElementById('configModal').classList.remove('hidden');
+  const el = document.getElementById('configGasUrlInput');
+  if (el) el.value = GAS_URL;
+  const modal = document.getElementById('configModal');
+  if (modal) modal.classList.remove('hidden');
 }
-function closeConfigModal() { document.getElementById('configModal').classList.add('hidden'); }
+function closeConfigModal() { 
+  const modal = document.getElementById('configModal');
+  if (modal) modal.classList.add('hidden'); 
+}
 function saveConfigSettings() {
   const url = document.getElementById('configGasUrlInput').value.trim();
   if (!url) return alert('Bawal ang walang backend database URL link.');
@@ -265,10 +272,15 @@ function renderDashboard() {
   const totalExp   = filteredExp.reduce((sum, e) => sum + Number(e.amount || 0), 0);
   const netRevenue = grossSales - totalExp;
 
-  document.getElementById('dashGrossSalesLabel').innerText = '₱' + grossSales.toFixed(2);
-  document.getElementById('dashExpensesLabel').innerText   = '₱' + totalExp.toFixed(2);
-  document.getElementById('dashNetRevenueLabel').innerText   = '₱' + netRevenue.toFixed(2);
-  document.getElementById('dashTxCountLabel').innerText     = filteredSales.length + ' invoices';
+  const grossEl = document.getElementById('dashGrossSalesLabel');
+  const expEl = document.getElementById('dashExpensesLabel');
+  const netEl = document.getElementById('dashNetRevenueLabel');
+  const txEl = document.getElementById('dashTxCountLabel');
+
+  if (grossEl) grossEl.innerText = '₱' + grossSales.toFixed(2);
+  if (expEl) expEl.innerText = '₱' + totalExp.toFixed(2);
+  if (netEl) netEl.innerText = '₱' + netRevenue.toFixed(2);
+  if (txEl) txEl.innerText = filteredSales.length + ' invoices';
 
   document.querySelectorAll('.dash-filter-btn').forEach(b => b.classList.remove('active'));
   const actBtn = document.getElementById(`dashBtn-${dashPeriod}`);
@@ -749,4 +761,353 @@ async function submitStockAdjustment() {
 function renderSalesTable() {
   const tbody = document.querySelector('#salesTable tbody');
   if (sales.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">No transactions logged yet
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">No transactions logged yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sales.map(s => {
+    let itemsDesc = '';
+    try {
+      const arr = typeof s.items === 'string' ? JSON.parse(s.items) : s.items;
+      itemsDesc = arr.map(i => `${i.qty}x ${i.name} (${i.unit})`).join(', ');
+    } catch(e) { itemsDesc = String(s.items); }
+
+    return `
+      <tr>
+        <td><strong>SI-${String(s.id).substring(3)}</strong></td>
+        <td><small>${new Date(s.timestamp).toLocaleString()}</small></td>
+        <td><span style="font-weight:500;">${s.cashier}</span></td>
+        <td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${itemsDesc}">${itemsDesc}</td>
+        <td><strong>₱${Number(s.total).toFixed(2)}</strong></td>
+        <td><button class="action-btn edit-btn" style="font-size:11px; padding:4px 8px;" onclick="reprintReceiptDirect('${s.id}')">📟 Receipt</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function reprintReceiptDirect(id) {
+  const s = sales.find(tx => tx.id === id);
+  if (!s) return showToast('Transaction trace not found.', 'error');
+  let itemsArr = [];
+  try { itemsArr = typeof s.items === 'string' ? JSON.parse(s.items) : s.items; } catch(e){ itemsArr = []; }
+
+  const mockData = {
+    id: s.id, timestamp: s.timestamp, cashier: s.cashier, items: itemsArr, total: Number(s.total), cashReceived: Number(s.cashReceived || s.total), change: Number(s.change || 0)
+  };
+  generateReceiptImage(mockData);
+  openReceiptModal();
+}
+
+// ── CASHIERS REGISTER VIEW ───────────────────────────────────
+function renderCashiersTable() {
+  if (checkAccess(['admin'])) return;
+  const tbody = document.querySelector('#cashiersTable tbody');
+  if (cashiers.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Gumawa ng staff account gamit ang Add Button.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = cashiers.map(c => `
+    <tr>
+      <td><code>${c.id}</code></td>
+      <td><strong>${c.name}</strong></td>
+      <td><code>${c.username}</code></td>
+      <td><span class="badge badge-${c.role==='admin'?'danger':c.role==='clerk'?'teal':'success'}">${c.role.toUpperCase()}</span></td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          <button class="action-btn edit-btn" onclick="openEditCashierModal('${c.id}')">✏️</button>
+          <button class="action-btn delete-btn" onclick="submitDeleteCashier('${c.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openAddCashierModal() {
+  document.getElementById('cashierModalTitle').innerText = 'Magrehistro ng Bagong Employee';
+  document.getElementById('cashierFormId').value = '';
+  document.getElementById('cashierFormName').value = '';
+  document.getElementById('cashierFormUser').value = '';
+  document.getElementById('cashierFormPass').value = '';
+  document.getElementById('cashierFormRole').value = 'cashier';
+  document.getElementById('cashierModal').classList.remove('hidden');
+}
+
+function openEditCashierModal(id) {
+  const c = cashiers.find(cash => cash.id === id);
+  if (!c) return;
+  document.getElementById('cashierModalTitle').innerText = 'I-edit ang Impormasyon ng Staff';
+  document.getElementById('cashierFormId').value = c.id;
+  document.getElementById('cashierFormName').value = c.name;
+  document.getElementById('cashierFormUser').value = c.username;
+  document.getElementById('cashierFormPass').value = '';
+  document.getElementById('cashierFormRole').value = c.role || 'cashier';
+  document.getElementById('cashierModal').classList.remove('hidden');
+}
+function closeCashierModal() { document.getElementById('cashierModal').classList.add('hidden'); }
+
+async function submitCashierForm() {
+  const id       = document.getElementById('cashierFormId').value;
+  const name     = document.getElementById('cashierFormName').value.trim();
+  const username = document.getElementById('cashierFormUser').value.trim();
+  const password = document.getElementById('cashierFormPass').value.trim();
+  const role     = document.getElementById('cashierFormRole').value;
+
+  if(!name || !username) return showToast('Paki-sulat ang Pangalan at Username', 'error');
+  if(!id && !password)   return showToast('Ang bagong cashier ay nangangailangan ng password!', 'error');
+
+  const payload = { name, username, password, role };
+  if(id) {
+    payload.id = id;
+    showToast('Updating employee information...', 'info');
+    const res = await gasRequest('updateCashier', payload);
+    if(res.ok) { showToast('Account updated!', 'success'); closeCashierModal(); syncData(); }
+    else showToast(res.error, 'error');
+  } else {
+    showToast('Creating profile registry...', 'info');
+    const res = await gasRequest('addCashier', payload);
+    if(res.ok) { showToast('Employee registered!', 'success'); closeCashierModal(); syncData(); }
+    else showToast(res.error, 'error');
+  }
+}
+
+async function submitDeleteCashier(id) {
+  if(!confirm('Sigurado ka bang tatanggalin ang cashier na ito?')) return;
+  showToast('Removing employee index...', 'info');
+  const res = await gasRequest('deleteCashier', { id });
+  if (res.ok) { showToast('Account removed from database.', 'success'); syncData(); }
+  else showToast(res.error, 'error');
+}
+
+// ── EXPENSES VIEW ────────────────────────────────────────────
+function renderExpensesTable() {
+  const tbody = document.querySelector('#expensesTable tbody');
+  if (expenses.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">No operational expenses logged.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = expenses.map(e => `
+    <tr>
+      <td><small>${new Date(e.timestamp).toLocaleDateString()}</small></td>
+      <td><strong>${e.type.toUpperCase()}</strong></td>
+      <td>${e.description || '<span style="#ccc;">No notes</span>'}</td>
+      <td style="color:#ff4d4d; font-weight:bold;">₱${Number(e.amount).toFixed(2)}</td>
+      <td><button class="action-btn delete-btn role-admin-only" onclick="submitDeleteExpense('${e.id}')">🗑️</button></td>
+    </tr>
+  `).join('');
+  updateUserNavbarUi();
+}
+
+async function submitAddExpense() {
+  const type = document.getElementById('expFormType').value;
+  const amt  = parseFloat(document.getElementById('expFormAmount').value) || 0;
+  const desc = document.getElementById('expFormDesc').value.trim();
+
+  if (amt <= 0) return showToast('Paki-lagay ang tamang halaga ng nagastos.', 'error');
+  showToast('Recording system expenses...', 'info');
+  const res = await gasRequest('addExpense', { type, amount: amt, description: desc });
+  if (res.ok) {
+    showToast('Expense recorded!', 'success');
+    document.getElementById('expFormAmount').value = '';
+    document.getElementById('expFormDesc').value = '';
+    syncData();
+  } else showToast(res.error, 'error');
+}
+
+async function submitDeleteExpense(id) {
+  if (checkAccess(['admin'])) return;
+  if (!confirm('Buburahin ba ang expense report na ito?')) return;
+  showToast('Removing expense index...', 'info');
+  const res = await gasRequest('deleteExpense', { id });
+  if (res.ok) { showToast('Expense deleted.', 'success'); syncData(); }
+  else showToast(res.error, 'error');
+}
+
+// ── BACKUP & RESTORE ─────────────────────────────────────────
+async function createManualBackup() {
+  showToast('Creating database snapshot graph...', 'info');
+  const res = await gasRequest('createBackup');
+  if (res.ok) { showToast(`Backup saved as: ${res.backupName}`, 'success'); loadBackups(); }
+  else showToast(res.error, 'error');
+}
+
+async function loadBackups() {
+  const container = document.getElementById('backupList');
+  if (!container) return;
+  container.innerHTML = '<p class="empty-msg">Loading historical logs...</p>';
+  const res = await gasRequest('getBackups');
+  if (!res.ok) return container.innerHTML = `<p class="error-msg">${res.error}</p>`;
+  
+  if (!res.data || res.data.length === 0) {
+    container.innerHTML = '<p class="empty-msg">Walang nahanap na system backups.</p>';
+    return;
+  }
+  container.innerHTML = res.data.map(b => `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid var(--border); font-size:12px;">
+      <div>
+        <strong>${b.name}</strong>
+        <div style="color:var(--text3); font-size:10px;">Saved on: ${b.timestamp}</div>
+      </div>
+      <button class="action-btn edit-btn role-admin-only" style="font-size:10px; padding:4px 8px;" onclick="submitRestoreBackup('${b.name}')">🔄 Restore</button>
+    </div>
+  `).join('');
+  updateUserNavbarUi();
+}
+
+async function submitRestoreBackup(name) {
+  if (checkAccess(['admin'])) return;
+  if (!confirm(`CRITICAL WARNING: Sigurado ka bang i-re-restore ang backup na [${name}]?`)) return;
+
+  showToast('Reconstructing sheets tables...', 'info');
+  const res = await gasRequest('restoreBackup', { backupName: name });
+  if (res.ok) {
+    showToast('Database rollback completed successfully!', 'success');
+    setTimeout(() => window.location.reload(), 1200);
+  } else showToast(res.error, 'error');
+}
+
+function clearLocalData() {
+  if(confirm('Buburahin ang local cache ng app? Kakailanganin mag-sync ulit.')) {
+    localStorage.clear();
+    showToast('Cache cleared. Reloading...', 'info');
+    setTimeout(() => window.location.reload(), 1000);
+  }
+}
+
+// ── LOCAL STORAGE PHOTO GRAPHICS ─────────────────────────────
+function openProfilePhotoUpload() {
+  const el = document.createElement('input');
+  el.type = 'file'; el.accept = 'image/*';
+  el.onchange = e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      localStorage.setItem('ae_pos_profile_photo', reader.result);
+      applyLocalProfilePhotos();
+      showToast('Profile photo updated locally!', 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+  el.click();
+}
+
+// ── DAILY TRANSACTIONS SUMMARY CANVAS REPORT ──────────────────
+function generateTodaySummaryReport() {
+  const now = new Date();
+  const filteredSales = sales.filter(s => new Date(s.timestamp).toDateString() === now.toDateString());
+  const filteredExp   = expenses.filter(e => new Date(e.timestamp).toDateString() === now.toDateString());
+
+  const gross = filteredSales.reduce((acc, s) => acc + Number(s.total || 0), 0);
+  const exp   = filteredExp.reduce((acc, e) => acc + Number(e.amount || 0), 0);
+  const net   = gross - exp;
+
+  const canvas = document.createElement('canvas');
+  const ctx    = canvas.getContext('2d');
+  const W = 320; let H = 340;
+  canvas.width = W; canvas.height = H;
+
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#0f0f13'; ctx.textAlign='center';
+  ctx.font='bold 14px Arial'; ctx.fillText('AE HOME TRADE CORPORATION', W/2, 25);
+  ctx.font='11px Arial'; ctx.fillText('DAILY SALES & LOGS SUMMARY REPORT', W/2, 42);
+  ctx.fillStyle='#666'; ctx.fillText(`Generated: ${now.toLocaleString()}`, W/2, 58);
+  ctx.strokeStyle='#eee'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(15,70); ctx.lineTo(305,70); ctx.stroke();
+  
+  ctx.textAlign='left'; ctx.fillStyle='#0f0f13'; ctx.font='bold 12px Arial';
+  let y = 92;
+  ctx.fillText('FINANCIAL METRICS SCOPE', 20, y); y+=24;
+  ctx.font='11px Arial';
+  ctx.fillText('GROSS TOTAL TRANSACTION SALES:', 20, y);
+  ctx.textAlign='right'; ctx.fillText('₱' + gross.toFixed(2), W-20, y); y+=18;
+  
+  ctx.textAlign='left'; ctx.fillStyle='#ff4d4d';
+  ctx.fillText('OPERATIONAL EXPENSES OUTFLOW:', 20, y);
+  ctx.textAlign='right'; ctx.fillText('- ₱' + exp.toFixed(2), W-20, y); y+=22;
+  ctx.strokeStyle='#eee'; ctx.beginPath(); ctx.moveTo(15,y-10); ctx.lineTo(305,y-10); ctx.stroke();
+  
+  ctx.textAlign='left'; ctx.fillStyle='#00c853'; ctx.font='bold 13px Arial';
+  ctx.fillText('NET TAKE-HOME REVENUE:', 20, y);
+  ctx.textAlign='right'; ctx.fillText('₱' + net.toFixed(2), W-20, y); y+=30;
+  
+  ctx.textAlign='left'; ctx.fillStyle='#0f0f13'; ctx.font='bold 12px Arial';
+  ctx.fillText('LOGISTICAL STATS', 20, y); y+=20;
+  ctx.font='11px Arial';
+  ctx.fillText('Total Completed Transactions:', 20, y);
+  ctx.textAlign='right'; ctx.fillText(filteredSales.length + ' invoices', W-20, y); y+=18;
+  ctx.textAlign='left';
+  ctx.fillText('Total Operations Cashier Active:', 20, y);
+  ctx.textAlign='right';
+  const uniqueCashiers = [...new Set(filteredSales.map(s => s.cashier))];
+  ctx.fillText(uniqueCashiers.length + ' clerks', W-20, y); y+=35;
+  
+  ctx.strokeStyle='#1e90ff'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(15,y); ctx.lineTo(305,y); ctx.stroke(); y+=18;
+  ctx.fillStyle='#777'; ctx.font='10px Arial'; ctx.textAlign='center';
+  ctx.fillText('This serves as Sales Summary for Inventory Purposes Only.', W/2, y); y+=13;
+  ctx.fillStyle='#1e90ff'; ctx.font='bold 10px Arial';
+  ctx.fillText('AE HOME TRADE CORP.', W/2, y); y+=12;
+  ctx.fillStyle='#ccc'; ctx.font='9px Arial';
+  ctx.fillText('Powered by AE Home POS System', W/2, y);
+
+  summaryImageData = canvas.toDataURL('image/png');
+  
+  const preview = document.getElementById('summaryPreview');
+  if (preview) {
+    preview.innerHTML = `<img src="${summaryImageData}" style="max-width:100%; border:1px solid var(--border); border-radius:8px;" />`;
+  }
+}
+
+function downloadSummaryImage() {
+  if (!summaryImageData) { showToast('Generate summary muna!', 'error'); return; }
+  const a = document.createElement('a');
+  a.href     = summaryImageData;
+  a.download = `sales-summary-${new Date().toISOString().slice(0,10)}.png`;
+  a.click();
+  showToast('Downloading summary...', 'success');
+}
+
+function resetTodaySummary() {
+  if (!confirm('Reset today\'s summary view? Hindi mabubura ang data sa Google Sheets.')) return;
+  summaryImageData = null;
+  const preview = document.getElementById('summaryPreview');
+  if (preview) {
+    preview.innerHTML = `
+      <div style="color:var(--text3);text-align:center;padding:60px 0;">
+        <div style="font-size:48px;margin-bottom:12px;">📋</div>
+        <p>I-click ang <strong>"Generate Summary"</strong> para makita ang today's transactions.</p>
+      </div>`;
+  }
+  const status = document.getElementById('summaryStatus');
+  if (status) status.innerHTML = '';
+  showToast('Summary layout view reset.', 'info');
+}
+
+function openCoverPhotoUpload() {
+  const el = document.createElement('input');
+  el.type = 'file'; el.accept = 'image/*';
+  el.onchange = e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      localStorage.setItem('ae_pos_cover_photo', reader.result);
+      applyLocalProfilePhotos();
+      showToast('Dashboard cover background changed!', 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+  el.click();
+}
+
+function applyLocalProfilePhotos() {
+  const prof = localStorage.getItem('ae_pos_profile_photo');
+  if (prof) {
+    const wrap = document.getElementById('navProfileWrap');
+    if(wrap) wrap.innerHTML = `<img src="${prof}" style="width:100%;height:100%;object-fit:cover;" />`;
+  }
+  const cover = localStorage.getItem('ae_pos_cover_photo');
+  const dashHero = document.getElementById('dashHeroCard');
+  if (cover && dashHero) {
+    dashHero.style.backgroundImage = `linear-gradient(rgba(26,26,46,0.65), rgba(15,15,19,0.85)), url(${cover})`;
+    dashHero.style.backgroundSize = 'cover';
+    dashHero.style.backgroundPosition = 'center';
+  }
+}
