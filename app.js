@@ -127,17 +127,15 @@ async function gasRequest(action, payload = {}) {
   }
   if (!GAS_URL) return { ok: false, error: 'No GAS URL' };
   try {
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action, ...payload }),
-    });
-    const text = await res.text();
+    // Use GET with data as URL param — avoids CORS preflight issues
+    const data   = encodeURIComponent(JSON.stringify({ action, ...payload }));
+    const url    = GAS_URL + '?data=' + data;
+    const res    = await fetch(url, { method: 'GET', redirect: 'follow' });
+    const text   = await res.text();
     try {
       return JSON.parse(text);
     } catch(e) {
-      return { ok: false, error: 'Invalid response: ' + text.substring(0,100) };
+      return { ok: false, error: 'Invalid response: ' + text.substring(0,150) };
     }
   } catch(e) { setOffline(true); return { ok: false, error: e.message }; }
 }
