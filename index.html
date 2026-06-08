@@ -4,525 +4,140 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1e90ff" />
-  <meta name="description" content="AE Home POS System" />
   <title>AE Home POS</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon-192.png" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<div id="splash" class="splash">
-  <div class="splash-inner">
-    <div class="splash-logo">AE</div>
-    <div class="splash-title">Home POS System</div>
-    <div class="splash-loader"><span></span><span></span><span></span></div>
-  </div>
-</div>
-
-<div id="configModal" class="modal hidden">
-  <div class="modal-box wide">
-    <h2>Connect Google Sheets</h2>
-    <p class="modal-sub">Paste your Google Apps Script Web App URL to connect the database. Internet connection required.</p>
-    <div class="form-group" style="margin:20px 0;">
-      <label>Google Apps Script Web App URL</label>
-      <input type="url" id="configGasUrlInput" placeholder="https://script.google.com/macros/s/.../exec" />
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn-ghost" onclick="closeConfigModal()">Cancel</button>
-      <button class="btn-primary" onclick="saveConfigSettings()">Save Configuration</button>
+  <div id="splash" class="splash">
+    <div class="splash-inner">
+      <div class="splash-logo">AE</div>
+      <div class="splash-title">AE Home POS System</div>
+      <div class="splash-loader"><span></span><span></span><span></span></div>
     </div>
   </div>
-</div>
 
-<nav id="appMainNavbar" class="navbar hidden">
-  <div class="nav-brand">
-    <span class="brand-logo">AE</span>
-    <div>
-      <h1 class="brand-name">AE HOME</h1>
-      <p class="brand-sub">Trade Corporation</p>
-    </div>
-  </div>
-  <div class="nav-links">
-    <a onclick="showSection('dashboard')" class="role-clerk-only">📊 Dashboard</a>
-    <a onclick="showSection('pos')">🛒 POS Terminal</a>
-    <a onclick="showSection('products')" class="role-clerk-only">📦 Products Registry</a>
-    <a onclick="showSection('sales')" class="role-clerk-only">📋 Transactions Log</a>
-    <a onclick="showSection('cashiers')" class="role-admin-only">👥 Employee Management</a>
-    <a onclick="showSection('expenses')" class="role-admin-only">💸 Expenses</a>
-    <a onclick="showSection('settings')" class="role-clerk-only">⚙️ System Options</a>
-  </div>
-  <div class="nav-profile">
-    <div id="syncIndicatorStatus" style="font-size:11px;color:var(--text2);margin-right:8px;font-weight:500;">✅ Connected</div>
-    <div class="profile-photo-wrap" id="navProfileWrap" onclick="openProfilePhotoUpload()">AE</div>
-    <div class="profile-info">
-      <span id="navUserLabel" class="profile-name">Active User</span>
-      <span id="navRoleBadge" class="badge badge-teal">CASHIER</span>
-    </div>
-    <button class="logout-btn" onclick="handleLogout()" title="Logout System">🚪</button>
-  </div>
-</nav>
-
-<main class="app-container">
-  
-  <section id="login" class="login-section hidden">
-    <div class="login-card">
-      <div class="login-header">
-        <div class="login-logo">AE</div>
-        <h2>Welcome to AE Home</h2>
-        <p>Log in to access your point of sale terminal dashboard.</p>
-      </div>
-      <form id="loginForm">
-        <div class="form-group">
-          <label for="loginUser">Username</label>
-          <input type="text" id="loginUser" required placeholder="Sulat ang iyong username" />
-        </div>
-        <div class="form-group">
-          <label for="loginPass">Password</label>
-          <input type="password" id="loginPass" required placeholder="••••••••" />
-        </div>
-        <button type="submit" class="btn-submit">Sign In Account</button>
-      </form>
-      <div style="margin-top:20px;text-align:center;">
-        <button class="btn-ghost" onclick="openConfigModal()" style="font-size:12px;padding:8px 12px;">⚙️ Connect Database URL</button>
+  <nav id="navbar" class="navbar hidden">
+    <div class="nav-brand">
+      <div class="brand-logo">AE</div>
+      <div class="brand-info">
+        <div class="brand-name">AE HOME TRADE CORP.</div>
+        <div class="brand-sub">POS Terminal</div>
       </div>
     </div>
-  </section>
-
-  <section id="dashboard" class="dashboard-section hidden">
-    <div class="hero-card" id="dashHeroCard">
-      <div class="hero-text">
-        <h2>Magandang Araw, AE Home Team! 👋</h2>
-        <p>Heto ang pangkalahatang takbo at operational summary ng tindahan sa araw na ito.</p>
-      </div>
-      <div class="hero-actions">
-        <button id="dashBtn-today" class="dash-filter-btn active" onclick="changeDashboardPeriod('today')">Today Summary</button>
-        <button id="dashBtn-month" class="dash-filter-btn" onclick="changeDashboardPeriod('month')">This Month Scope</button>
-        <button class="btn-primary" style="background:var(--grad-green);" onclick="syncData()">🔄 Refresh Cloud</button>
-      </div>
+    <div class="nav-links">
+      <a id="nav-dash" class="active" onclick="switchPage('dashboard')">Dashboard</a>
+      <a id="nav-pos" onclick="switchPage('pos')">POS System</a>
     </div>
-
-    <div class="metrics-grid">
-      <div class="metric-card card-blue">
-        <div class="metric-icon">💰</div>
-        <div class="metric-meta">
-          <h3>Gross Sales Total</h3>
-          <p id="dashGrossSalesLabel">₱0.00</p>
-        </div>
+    <div class="nav-profile">
+      <div class="profile-info">
+        <div id="user-display-name" class="profile-name">Cashier Name</div>
       </div>
-      <div class="metric-card card-red">
-        <div class="metric-icon">📉</div>
-        <div class="metric-meta">
-          <h3>Business Expenses</h3>
-          <p id="dashExpensesLabel">₱0.00</p>
-        </div>
-      </div>
-      <div class="metric-card card-green">
-        <div class="metric-icon">📈</div>
-        <div class="metric-meta">
-          <h3>Net Revenue Take-home</h3>
-          <p id="dashNetRevenueLabel">₱0.00</p>
-        </div>
-      </div>
-      <div class="metric-card card-teal">
-        <div class="metric-icon">🧾</div>
-        <div class="metric-meta">
-          <h3>Invoices Processed</h3>
-          <p id="dashTxCountLabel">0 invoices</p>
-        </div>
-      </div>
+      <button class="logout-btn" onclick="handleLogout()" title="Logout">🚪</button>
     </div>
+  </nav>
 
-    <div class="card" style="margin-top:24px;max-width:640px;">
-      <h3>📋 Operations Daily Analytics Summary</h3>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Mag-generate ng visual summary card ng benta at expenses para sa imbentaryo.</p>
-      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-        <button class="btn-primary" onclick="generateTodaySummaryReport()">Generate Summary Layout</button>
-        <button class="btn-ghost" onclick="downloadSummaryImage()">📥 Download PNG Image</button>
-        <button class="btn-danger" style="padding:8px 12px;font-size:12px;" onclick="resetTodaySummary()">Reset View</button>
-      </div>
-      <div id="summaryStatus" style="font-size:12px;font-weight:600;color:var(--primary);margin-bottom:8px;"></div>
-      <div id="summaryPreview" class="summary-preview-box" style="background:rgba(0,0,0,0.03);border:2px dashed var(--border);border-radius:12px;padding:12px;display:flex;justify-content:center;">
-        <div style="color:var(--text3);text-align:center;padding:40px 0;">
-          <div style="font-size:48px;margin-bottom:12px;">📋</div>
-          <p>I-click ang <strong>"Generate Summary"</strong> para makita ang today's transactions.</p>
+  <main class="app-container">
+    
+    <section id="page-login" class="login-section">
+      <div class="login-card">
+        <div class="login-header">
+          <div class="login-logo">AE</div>
+          <h2>AE Home POS</h2>
+          <p>Mag-login gamit ang iyong account credentials</p>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="pos" class="pos-section hidden">
-    <div class="pos-layout">
-      <div class="pos-catalog">
-        <div class="catalog-header">
-          <div class="search-bar" style="flex:1;">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="posProductSearchInput" oninput="updatePosProductsGrid()" placeholder="I-type ang pangalan ng item o i-scan..." />
+        <form id="loginForm" onsubmit="executeLogin(event)">
+          <div class="form-group">
+            <label>Piliin ang iyong pangalan</label>
+            <select id="login-user" required>
+              <option value="" disabled selected>-- Pumili ng Cashier --</option>
+              <option value="Admin">Manager / Admin</option>
+              <option value="Precious">Precious</option>
+              <option value="Angela">Angela</option>
+              <option value="Cashier 1">Cashier 1</option>
+            </select>
           </div>
-          <div class="scanner-bar" style="width:200px;">
-            <input type="text" id="posBarcodeScanner" placeholder="[Scan Barcode Here]" style="background:var(--card-bg);border:1px solid var(--primary);font-family:monospace;text-align:center;" />
+          <div class="form-group">
+            <label>Password / Pin</label>
+            <input type="password" id="login-pass" placeholder="••••••••" required autocomplete="current-password" />
+          </div>
+          <button type="submit" class="btn-submit">Pumasok sa System 🚀</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="page-dashboard" class="hidden">
+      <div class="hero-card">
+        <div class="hero-text">
+          <h2>Magandang Araw, Kabalikat! 👋</h2>
+          <p>Welcome sa AE Home Trade Corporation Central Dashboard System.</p>
+        </div>
+      </div>
+      
+      <div class="metrics-grid">
+        <div class="metric-card card-blue">
+          <div class="metric-icon">💰</div>
+          <div class="metric-meta">
+            <h3>Today's Wholesale Sales</h3>
+            <p id="dash-sales">₱0.00</p>
           </div>
         </div>
-        <div id="posProductsGrid" class="products-grid">
+        <div class="metric-card card-green">
+          <div class="metric-icon">📦</div>
+          <div class="metric-meta">
+            <h3>Active Products</h3>
+            <p id="dash-products">0 items</p>
           </div>
+        </div>
       </div>
+    </section>
 
-      <div class="pos-cart">
-        <div class="cart-header">
-          <h3>🛒 Current Items List</h3>
-          <button class="btn-clear-cart" onclick="clearCart()">Clear All</button>
-        </div>
-        <div class="cart-items">
-          <table id="cartTable" class="pos-table">
-            <thead>
-              <tr>
-                <th>Product Description</th>
-                <th>Price</th>
-                <th>Qty</th>
-                <th>Total</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              </tbody>
-          </table>
-        </div>
-        <div class="cart-summary">
-          <div class="total-row">
-            <span>Amount Due Summary:</span>
-            <strong id="cartTotalLabel">₱0.00</strong>
+    <section id="page-pos" class="hidden">
+      <div class="pos-layout">
+        <div class="pos-catalog">
+          <div class="catalog-header">
+            <div class="search-bar">
+              <input type="text" id="posSearch" placeholder="Maghanap ng produkto..." oninput="filterCatalog()" />
+            </div>
           </div>
-          <button class="btn-checkout" onclick="openCheckoutModal()">💳 Proceed to Payment (F8)</button>
+          <div id="productsGrid" class="products-grid">
+            </div>
+        </div>
+        
+        <div class="pos-cart">
+          <div class="cart-header">
+            <h3>Shopping Cart</h3>
+            <button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="clearCart()">Clear</button>
+          </div>
+          <div class="cart-items">
+            <table class="pos-table">
+              <thead>
+                <tr>
+                  <th>Item Name</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                </tr>
+              </thead>
+              <tbody id="cartTableBody">
+                </tbody>
+            </table>
+          </div>
+          <div class="cart-summary">
+            <div class="total-row">
+              <span>Total Amount:</span>
+              <strong id="cartTotal">₱0.00</strong>
+            </div>
+            <button class="btn-checkout" onclick="processCheckout()">PLACE TRANSACTION 🛒</button>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <section id="products" class="products-section hidden">
-    <div class="section-header">
-      <div class="header-titles">
-        <h2>📦 Product Master Inventory</h2>
-        <p>I-manage ang active product logs, stock quantities, at wholesale price sheets.</p>
-      </div>
-      <button class="btn-primary" onclick="openAddProductModal()">+ Add New Product Registry</button>
-    </div>
-    <div class="card" style="margin-bottom:16px;padding:12px 20px;">
-      <div class="search-bar" style="max-width:400px;">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="prodSearchInput" oninput="renderProductsTable()" placeholder="Maghanap gamit ang Pangalan, ID o Barcode..." />
-      </div>
-    </div>
-    <div class="table-container card">
-      <table id="productsTable" class="data-table">
-        <thead>
-          <tr>
-            <th>Item ID</th>
-            <th>Barcode Registry</th>
-            <th>Product Name</th>
-            <th>Category Scope</th>
-            <th>Stock Volume (Pcs/Packs)</th>
-            <th>Price Grid Structure</th>
-            <th>Base Unit</th>
-            <th>Actions Management</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
+  </main>
 
-  <section id="sales" class="sales-section hidden">
-    <div class="section-header">
-      <div class="header-titles">
-        <h2>📋 System Invoices Log Summary</h2>
-        <p>Historical index record tracker para sa lahat ng successful completed store sales.</p>
-      </div>
-    </div>
-    <div class="table-container card">
-      <table id="salesTable" class="data-table">
-        <thead>
-          <tr>
-            <th>SI Number</th>
-            <th>Date Processed</th>
-            <th>Handling Clerk</th>
-            <th>Items Breakdown Scope</th>
-            <th>Gross Total</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section id="cashiers" class="cashiers-section hidden">
-    <div class="section-header">
-      <div class="header-titles">
-        <h2>👥 Employee Accounts Registry</h2>
-        <p>Dito isineset at pinapamahalaan ang system roles, passwords, at clearance levels ng staff.</p>
-      </div>
-      <button class="btn-primary" onclick="openAddCashierModal()">+ Add Employee Account</button>
-    </div>
-    <div class="table-container card">
-      <table id="cashiersTable" class="data-table">
-        <thead>
-          <tr>
-            <th>System Account ID</th>
-            <th>Employee Full Name</th>
-            <th>Login Username</th>
-            <th>Security Clearance Role</th>
-            <th>Actions Control</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section id="expenses" class="expenses-section hidden">
-    <div class="section-header">
-      <div class="header-titles">
-        <h2>💸 Operating Expenses Outflow</h2>
-        <p>Itala ang operational expenses tulad ng kuryente, logistics delivery, fuel, o repairs.</p>
-      </div>
-    </div>
-    <div class="grid-2-cols">
-      <div class="card">
-        <h3>Log New Cash Expense Outflow</h3>
-        <div class="form-group" style="margin-top:12px;">
-          <label>Expense Classification Type</label>
-          <select id="expFormType">
-            <option value="Logistics Delivery">Logistics & Delivery Inflows</option>
-            <option value="Store Supplies">Store Essential Supplies</option>
-            <option value="Utilities Bill">Utilities Water/Electricity Bill</option>
-            <option value="Staff Meals Allowance">Staff Meals & Allowance Outflows</option>
-            <option value="Equipment Repairs">Equipment Maintenance & Repairs</option>
-            <option value="Other Misc Expense">Other Miscellaneous Expenses</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Amount Outflow (PHP Value)</label>
-          <input type="number" id="expFormAmount" placeholder="₱0.00" min="1" step="any" />
-        </div>
-        <div class="form-group">
-          <label>Detailed Item Description Notes</label>
-          <input type="text" id="expFormDesc" placeholder="Sulat ang detalye kung saan ginamit ang pera" />
-        </div>
-        <button class="btn-primary" style="width:100%;margin-top:10px;" onclick="submitAddExpense()">Submit Log Outflow Entry</button>
-      </div>
-      <div class="table-container card">
-        <h3>Current History Outflow Audit</h3>
-        <table id="expensesTable" class="data-table" style="margin-top:12px;">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Category</th>
-              <th>Notes</th>
-              <th>Amount</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <section id="settings" class="settings-section hidden">
-    <div class="section-header">
-      <div class="header-titles">
-        <h2>⚙️ Core System Options & Database Backups</h2>
-        <p>Pamahalaan ang database connection links, system image backups, at physical local layouts.</p>
-      </div>
-    </div>
-    <div class="grid-2-cols">
-      <div class="card">
-        <h3>App Visual Assets Configuration</h3>
-        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">I-customize ang profile at cover background graphic photos ng app.</p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button class="btn-primary" onclick="openProfilePhotoUpload()">Update Profile Avatar</button>
-          <button class="btn-ghost" onclick="openCoverPhotoUpload()">Change Dashboard Wallpaper</button>
-        </div>
-        <h3 style="margin-top:24px;">Danger Operations Zone</h3>
-        <button class="btn-danger" style="margin-top:8px;" onclick="clearLocalData()">Wipe System Local Cache</button>
-      </div>
-      <div class="card">
-        <h3>Google Sheets Backup & Cloud Rollback Engine</h3>
-        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">
-          Gumawa ng exact automated structural snapshot backups ng sheets tables para sa safety redundancy controls.
-        </p>
-        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-          <button class="btn-primary" onclick="createManualBackup()">Create Cloud Backup Now</button>
-          <button class="btn-ghost" onclick="loadBackups()">Fetch Backups History List</button>
-        </div>
-        <div id="backupList" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:rgba(0,0,0,0.01);">
-          <p class="empty-msg">I-click ang "Fetch Backups History List" para mag-load.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-</main>
-
-<div id="unitSelectionModal" class="modal hidden">
-  <div class="modal-box">
-    <h3 style="font-size:18px;">Select Inventory Distribution Unit</h3>
-    <p id="unitModalItemLabel" style="color:var(--primary);font-weight:700;margin-bottom:16px;">Product Name Scope</p>
-    <div class="unit-options-layout" style="display:grid;grid-template-cols:1fr 1fr;gap:12px;margin-bottom:20px;">
-      <div class="unit-card-btn" id="unitModalOptionPc" onclick="selectUnitAndAddToCart('pcs')">Piece Unit</div>
-      <div class="unit-card-btn" id="unitModalOptionPack" onclick="selectUnitAndAddToCart('packs')">Pack Unit</div>
-    </div>
-    <button class="btn-ghost" style="width:100%;" onclick="closeUnitSelectionModal()">Cancel Selection</button>
-  </div>
-</div>
-
-<div id="checkoutModal" class="modal hidden">
-  <div class="modal-box checkout-box">
-    <h2>💳 Terminal Invoicing Payment</h2>
-    <div class="checkout-summary-row" style="margin-top:16px;">
-      <span>TOTAL ACCOUNT DUE:</span>
-      <strong id="checkoutTotalAmount" style="color:var(--green);font-size:24px;">₱0.00</strong>
-    </div>
-    <div class="form-group" style="margin:18px 0;">
-      <label style="font-weight:700;">Tender Cash Tendered Received (PHP Amount)</label>
-      <input type="number" id="checkoutCashReceived" oninput="calculateChange()" placeholder="₱0.00" style="font-size:20px;padding:12px;text-align:center;font-weight:bold;" />
-    </div>
-    <div class="checkout-summary-row" style="background:var(--grad-bg);padding:12px;border-radius:8px;">
-      <span>RETURN CHANGE OUTFLOW:</span>
-      <strong id="checkoutChange" style="color:var(--primary);font-size:20px;">₱0.00</strong>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
-      <button class="btn-ghost" onclick="closeCheckoutModal()">Cancel Checkout</button>
-      <button class="btn-primary" style="background:var(--grad-green);" onclick="processCheckout()">Validate & Print Invoicing SI Receipt</button>
-    </div>
-  </div>
-</div>
-
-<div id="receiptModal" class="modal hidden">
-  <div class="modal-box receipt-box" style="max-width:320px;">
-    <h3>🧾 Transaction SI Invoice Receipt</h3>
-    <p class="modal-sub">Official sales documentation log system layout generated successfully.</p>
-    <div id="receiptPreview" style="margin:16px 0;text-align:center;background:#fff;padding:8px;border-radius:6px;"></div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <button class="btn-primary" onclick="printReceiptImage()">🖨️ Send Command to Printer Terminal</button>
-      <button class="btn-ghost" onclick="closeReceiptModal()">Dismiss Print View</button>
-    </div>
-  </div>
-</div>
-
-<div id="productModal" class="modal hidden">
-  <div class="modal-box wide">
-    <h2 id="productModalTitle">Add New Product Registry Index</h2>
-    <input type="hidden" id="prodFormId" />
-    <div class="grid-2-cols" style="margin:16px 0;gap:12px;">
-      <div class="form-group">
-        <label>Barcode Registry String Id</label>
-        <input type="text" id="prodFormBarcode" placeholder="I-scan o i-type ang code" />
-      </div>
-      <div class="form-group">
-        <label>Product Name</label>
-        <input type="text" id="prodFormName" placeholder="Pangalan ng aytem" required />
-      </div>
-      <div class="form-group">
-        <label>Category Scope Classification</label>
-        <select id="prodFormCategory">
-          <option value="Grocery">Grocery Essentials</option>
-          <option value="Electrical">Electrical Supplies</option>
-          <option value="Appliances">Home Appliances</option>
-          <option value="Hardware">Hardware Assets</option>
-          <option value="E-Bike Assets">E-Bike & Logistics Units</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Price Per Piece Unit</label>
-        <input type="number" id="prodFormPricePc" placeholder="₱0.00" step="any" />
-      </div>
-      <div class="form-group">
-        <label>Price Per Pack Distribution</label>
-        <input type="number" id="prodFormPricePack" placeholder="₱0.00" step="any" />
-      </div>
-      <div class="form-group">
-        <label>Base Stock Standard Unit</label>
-        <select id="prodFormUnit">
-          <option value="pcs">Pieces (Pcs)</option>
-          <option value="packs">Packs (Packs)</option>
-        </select>
-      </div>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn-ghost" onclick="closeProductModal()">Cancel</button>
-      <button class="btn-primary" onclick="submitProductForm()">Save Product Asset Entry</button>
-    </div>
-  </div>
-</div>
-
-<div id="stockUpdateModal" class="modal hidden">
-  <div class="modal-box">
-    <h2>📦 Stock Volume Inventory Adjustment</h2>
-    <p id="stockModalItemLabel" style="color:var(--primary);font-weight:bold;margin:6px 0;"></p>
-    <p style="font-size:12px;color:var(--text2);">Current State: <strong id="stockCurrentState" style="color:var(--text1);"></strong></p>
-    <input type="hidden" id="stockModalId" />
-    <div class="form-group" style="margin-top:14px;">
-      <label>Direction Traffic Flux</label>
-      <select id="stockFormDirection">
-        <option value="in">Restock Inbound Inventory Influx (+)</option>
-        <option value="out">Inventory Stock Discrepancy Shrinkage Audit (-)</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Target Distribution Unit</label>
-      <select id="stockFormUnit">
-        <option value="pcs">Pieces (Pcs Target)</option>
-        <option value="packs">Packs (Packs Target)</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Quantity Count Volume</label>
-      <input type="number" id="stockFormQty" placeholder="0" min="1" required />
-    </div>
-    <div class="form-group">
-      <label>Audit Adjustment Reason Notes</label>
-      <input type="text" id="stockFormReason" value="Restock Inventory Log Entry" />
-    </div>
-    <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
-      <button class="btn-ghost" onclick="closeStockUpdateModal()">Cancel</button>
-      <button class="btn-primary" onclick="submitStockAdjustment()">Commit Inventory Logs Change</button>
-    </div>
-  </div>
-</div>
-
-<div id="cashierModal" class="modal hidden">
-  <div class="modal-box">
-    <h2 id="cashierModalTitle">Magrehistro ng Employee Account</h2>
-    <input type="hidden" id="cashierFormId" />
-    <div class="form-group" style="margin-top:14px;">
-      <label>Employee Complete Legal Name</label>
-      <input type="text" id="cashierFormName" placeholder="Pangalan ng Staff" required />
-    </div>
-    <div class="form-group">
-      <label>System Account Login Username</label>
-      <input type="text" id="cashierFormUser" placeholder="Username" required />
-    </div>
-    <div class="form-group">
-      <label>Security Password Entry</label>
-      <input type="password" id="cashierFormPass" placeholder="Sulat ng bagong password" />
-    </div>
-    <div class="form-group">
-      <label>Clearance Level Security Role</label>
-      <select id="cashierFormRole">
-        <option value="cashier">Cashier Front-End Terminal User</option>
-        <option value="clerk">Inventory Operations Management Clerk</option>
-        <option value="admin">System Operations Super Admin</option>
-      </select>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
-      <button class="btn-ghost" onclick="closeCashierModal()">Cancel</button>
-      <button class="btn-primary" onclick="submitCashierForm()">Save Employee Account</button>
-    </div>
-  </div>
-</div>
-
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
