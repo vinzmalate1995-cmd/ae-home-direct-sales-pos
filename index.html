@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1e90ff" />
+  <meta name="description" content="AE Home POS System" />
+  <title>AE Home POS</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash" class="splash">
+  <div class="splash-inner">
+    <div class="splash-logo">AE</div>
+    <div class="splash-title">Home POS System</div>
+    <div class="splash-loader"><span></span><span></span><span></span></div>
+  </div>
+</div>
+
+<!-- CONFIG MODAL -->
+<div id="configModal" class="modal hidden">
+  <div class="modal-box wide">
+    <h2>Connect Google Sheets</h2>
+    <p class="modal-sub">Paste your Google Apps Script Web App URL to connect the database. Internet connection required.</p>
+    <label>Apps Script Web App URL</label>
+    <input type="url" id="gasUrl" placeholder="https://script.google.com/macros/s/..." />
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveConfig()">Connect & Save</button>
+
+    </div>
+    <p class="hint">📄 See <strong>SETUP_GUIDE.md</strong> for full deployment instructions.</p>
+  </div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div id="loginModal" class="modal hidden">
+  <div class="modal-box">
+    <h2>Staff Login</h2>
+    <p class="modal-sub">Admin, Cashier, or Inventory Clerk access.</p>
+    <label>Username</label>
+    <input type="text" id="loginUser" placeholder="Enter username" autocomplete="username" />
+    <label>Password</label>
+    <input type="password" id="loginPass" placeholder="••••••" autocomplete="current-password" />
+    <div id="loginError" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="doLogin()">Login</button>
+      <button class="btn-ghost" onclick="closeModal('loginModal')">Cancel</button>
+    </div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);text-align:center;">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:10px;">Walang account? Subukan bilang:</p>
+      <button class="btn-ghost" onclick="enterGuestMode()" style="width:100%;background:linear-gradient(135deg,rgba(30,144,255,.08),rgba(0,200,83,.08));border-color:var(--border);">
+        Guest Mode <span style="font-size:11px;color:var(--text3);margin-left:6px;">(View & Demo only — hindi mare-record)</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- UNIT SELECT MODAL (per piece or per pack) -->
+<div id="unitSelectModal" class="modal hidden">
+  <div class="modal-box">
+    <h2>Select Unit</h2>
+    <p class="modal-sub" id="unitSelectProductName"></p>
+    <div class="item-unit-modal-options">
+      <div class="unit-option-card" id="unitOptPcs" onclick="selectUnit('pcs')">
+        <div class="unit-option-title">Per Piece</div>
+        <div class="unit-option-price" id="unitPcsPrice"></div>
+        <div class="unit-option-stock" id="unitPcsStock"></div>
+      </div>
+      <div class="unit-option-card" id="unitOptPack" onclick="selectUnit('pack')">
+        <div class="unit-option-title">Per Pack</div>
+        <div class="unit-option-price" id="unitPackPrice"></div>
+        <div class="unit-option-stock" id="unitPackStock"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('unitSelectModal')">Cancel</button>
+    </div>
+    <input type="hidden" id="unitSelectProductId" value="" />
+  </div>
+</div>
+
+<!-- CASHIER MODAL -->
+<div id="cashierModal" class="modal hidden">
+  <div class="modal-box">
+    <h2 id="cashierModalTitle">Add Staff</h2>
+    <label>Full Name</label>
+    <input type="text" id="cashierName" placeholder="Juan Dela Cruz" />
+    <label>Username</label>
+    <input type="text" id="cashierUsername" placeholder="juandc" />
+    <label>Password</label>
+    <input type="password" id="cashierPassword" placeholder="••••••" />
+    <label>Role</label>
+    <select id="cashierRole">
+      <option value="cashier">Cashier</option>
+      <option value="clerk">Inventory Clerk</option>
+      <option value="admin">Admin</option>
+    </select>
+    <div id="cashierError" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveCashier()">Save</button>
+      <button class="btn-ghost" onclick="closeModal('cashierModal')">Cancel</button>
+    </div>
+    <input type="hidden" id="cashierEditId" value="" />
+  </div>
+</div>
+
+<!-- PRODUCT MODAL -->
+<div id="productModal" class="modal hidden">
+  <div class="modal-box wide">
+    <h2 id="productModalTitle">Add Product</h2>
+    <div class="form-grid">
+      <div>
+        <label>Barcode</label>
+        <input type="text" id="prodBarcode" placeholder="Optional" />
+      </div>
+      <div>
+        <label>Product Name *</label>
+        <input type="text" id="prodName" placeholder="Product name" />
+      </div>
+      <div>
+        <label>Qty (pcs)</label>
+        <input type="number" id="prodQtyPcs" placeholder="0" min="0" />
+      </div>
+      <div>
+        <label>Qty (packs)</label>
+        <input type="number" id="prodQtyPacks" placeholder="0" min="0" />
+      </div>
+      <div>
+        <label>Price per Piece (₱)</label>
+        <input type="number" id="prodPricePcs" placeholder="0.00" min="0" step="0.01" />
+      </div>
+      <div>
+        <label>Price per Pack (₱)</label>
+        <input type="number" id="prodPricePack" placeholder="0.00" min="0" step="0.01" />
+      </div>
+      <div>
+        <label>Category</label>
+        <input type="text" id="prodCategory" placeholder="e.g. Beverages" />
+      </div>
+      <div>
+        <label>Unit</label>
+        <input type="text" id="prodUnit" placeholder="e.g. pcs, bottles" />
+      </div>
+    </div>
+    <div id="productError" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveProduct()">Save Product</button>
+      <button class="btn-ghost" onclick="closeModal('productModal')">Cancel</button>
+    </div>
+    <input type="hidden" id="productEditId" value="" />
+  </div>
+</div>
+
+<!-- STOCK MODAL -->
+<div id="stockModal" class="modal hidden">
+  <div class="modal-box">
+    <h2 id="stockModalTitle">Stock In</h2>
+    <p id="stockProductName" class="modal-sub"></p>
+    <label>Quantity</label>
+    <input type="number" id="stockQty" placeholder="0" min="1" />
+    <label>Unit Type</label>
+    <select id="stockUnit">
+      <option value="pcs">Pieces</option>
+      <option value="packs">Packs</option>
+    </select>
+    <label>Reason / Notes</label>
+    <input type="text" id="stockReason" placeholder="e.g. Restock, Return" />
+    <div id="stockError" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveStock()">Save</button>
+      <button class="btn-ghost" onclick="closeModal('stockModal')">Cancel</button>
+    </div>
+    <input type="hidden" id="stockProductId" value="" />
+    <input type="hidden" id="stockDirection" value="in" />
+  </div>
+</div>
+
+<!-- EXPENSE MODAL -->
+<div id="expenseModal" class="modal hidden">
+  <div class="modal-box">
+    <h2>Add Expense / Allowance</h2>
+    <label>Type</label>
+    <select id="expenseType">
+      <option value="expense">Expense</option>
+      <option value="allowance">Allowance</option>
+    </select>
+    <label>Description</label>
+    <input type="text" id="expenseDesc" placeholder="e.g. Store supplies" />
+    <label>Amount (₱)</label>
+    <input type="number" id="expenseAmount" placeholder="0.00" min="0" step="0.01" />
+    <div id="expenseError" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveExpense()">Save</button>
+      <button class="btn-ghost" onclick="closeModal('expenseModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKOUT MODAL -->
+<div id="checkoutModal" class="modal hidden">
+  <div class="modal-box">
+    <h2>Checkout</h2>
+    <div class="checkout-summary" id="checkoutSummary"></div>
+    <div class="checkout-total">
+      <span>Total</span>
+      <span id="checkoutTotal">₱0.00</span>
+    </div>
+    <label>Cash Received (₱)</label>
+    <input type="number" id="cashReceived" placeholder="0.00" min="0" step="0.01" oninput="computeChange()" />
+    <div class="checkout-change">
+      <span>Change</span>
+      <span id="changeDisplay">₱0.00</span>
+    </div>
+    <div id="checkoutError" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-success" onclick="finalizeCheckout()">Save & Exit</button>
+      <button class="btn-ghost" onclick="closeModal('checkoutModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- RECEIPT VIEW MODAL -->
+<div id="receiptViewModal" class="modal hidden">
+  <div class="modal-box wide">
+    <h2>Receipt</h2>
+    <div id="receiptImageContainer" style="margin:16px 0;"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="downloadCurrentReceipt()">Download PNG</button>
+      <button class="btn-ghost" onclick="closeModal('receiptViewModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- APP -->
+<div id="app" class="app hidden">
+  <!-- TOPBAR -->
+  <header class="topbar" id="topbarCover">
+    <div class="topbar-left">
+      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <div class="brand">AE Home POS</div>
+    </div>
+    <div class="topbar-right">
+      <div class="sync-status" id="syncStatus">● Online</div>
+      <!-- Profile Photo -->
+      <div class="profile-photo-wrap" onclick="openProfilePhotoUpload()" title="Change profile photo">
+        <span id="profilePhotoDefault" style="font-size:20px;">👤</span>
+        <img id="profilePhotoImg" src="" style="display:none;width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);" />
+      </div>
+      <div class="user-chip" id="userChip">👁 Viewer</div>
+      <button class="btn-sm" id="loginBtn" onclick="openLoginModal()">Login</button>
+      <button class="btn-sm btn-danger hidden" id="logoutBtn" onclick="doLogout()">Logout</button>
+      <!-- Hidden file inputs -->
+      <input type="file" id="profilePhotoInput" accept="image/*" style="display:none;" onchange="handleProfilePhotoChange(event)" />
+      <input type="file" id="coverPhotoInput" accept="image/*" style="display:none;" onchange="handleCoverPhotoChange(event)" />
+    </div>
+  </header>
+
+  <!-- GUEST MODE BANNER -->
+  <div class="guest-banner" id="guestBanner">
+    👁 GUEST MODE — Ikaw ay nasa demo mode. Hindi mare-record ang mga transaction sa Google Sheets.
+  </div>
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <nav class="sidebar" id="sidebar">
+      <ul class="nav-list">
+        <!-- Dashboard: visible to all -->
+        <li class="nav-all"><a href="#" class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">Dashboard</a></li>
+        <!-- POS: admin, cashier, clerk, guest -->
+        <li class="nav-pos hidden"><a href="#" class="nav-item" data-page="pos" onclick="navigate('pos')">POS / Cashier</a></li>
+        <!-- Inventory: admin + clerk -->
+        <li class="nav-inventory hidden"><a href="#" class="nav-item" data-page="inventory" onclick="navigate('inventory')">Inventory</a></li>
+        <!-- Import: admin + clerk -->
+        <li class="nav-import hidden"><a href="#" class="nav-item" data-page="import" onclick="navigate('import')">Import Data</a></li>
+        <!-- Finance: admin, cashier, clerk, guest -->
+        <li class="nav-finance hidden"><a href="#" class="nav-item" data-page="expenses" onclick="navigate('expenses')">Finance</a></li>
+        <!-- Sales Summary: admin, cashier, clerk, guest -->
+        <li class="nav-summary hidden"><a href="#" class="nav-item" data-page="summary" onclick="navigate('summary')">Sales Summary</a></li>
+        <!-- Receipts: admin, viewer -->
+        <li class="nav-receipts hidden"><a href="#" class="nav-item" data-page="receipts" onclick="navigate('receipts')">Receipts</a></li>
+        <!-- Staff: admin only -->
+        <li class="nav-staff-mgmt hidden"><a href="#" class="nav-item" data-page="cashiers" onclick="navigate('cashiers')">Staff</a></li>
+        <!-- Settings: admin only -->
+        <li class="nav-settings hidden"><a href="#" class="nav-item" data-page="settings" onclick="navigate('settings')">Settings</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <small id="sidebarRole">Mode: Viewer</small>
+      </div>
+    </nav>
+
+    <!-- MAIN -->
+    <main class="main-content" id="mainContent">
+
+      <!-- DASHBOARD -->
+      <section id="page-dashboard" class="page active">
+        <div class="page-header">
+          <h1>Dashboard</h1>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button class="btn-danger admin-only" onclick="confirmClearData()" style="font-size:12px;padding:7px 14px;">Clear Test Data</button>
+            <div class="filter-tabs">
+              <button class="tab active" onclick="setDashboardPeriod('today',this)">Today</button>
+              <button class="tab" onclick="setDashboardPeriod('week',this)">Week</button>
+              <button class="tab" onclick="setDashboardPeriod('month',this)">Month</button>
+              <button class="tab" onclick="setDashboardPeriod('all',this)">All Time</button>
+            </div>
+          </div>
+        </div>
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card blue" id="statSales">
+            <div class="stat-icon"></div>
+            <div class="stat-label">Total Sales</div>
+            <div class="stat-value">₱0.00</div>
+          </div>
+          <div class="stat-card green" id="statTx">
+            <div class="stat-icon"></div>
+            <div class="stat-label">Transactions</div>
+            <div class="stat-value">0</div>
+          </div>
+          <div class="stat-card teal" id="statItems">
+            <div class="stat-icon"></div>
+            <div class="stat-label">Items Sold</div>
+            <div class="stat-value">0</div>
+          </div>
+          <div class="stat-card main" id="statExpenses">
+            <div class="stat-icon"></div>
+            <div class="stat-label">Expenses</div>
+            <div class="stat-value">₱0.00</div>
+          </div>
+        </div>
+        <div class="dash-grid">
+          <div class="card"><h3>Top Products</h3><div id="topProducts"><p class="empty-msg">No data yet</p></div></div>
+          <div class="card"><h3>Cashier Performance</h3><div id="cashierPerf"><p class="empty-msg">No data yet</p></div></div>
+          <div class="card full-width admin-only">
+            <h3 style="display:flex;align-items:center;justify-content:space-between;">
+              <span>Active Users
+                <span id="activeUserCount" style="
+                  background:var(--grad-main);color:#fff;
+                  border-radius:20px;padding:2px 10px;
+                  font-size:12px;margin-left:8px;
+                ">0</span>
+              </span>
+              <button class="btn-sm" onclick="loadActiveSessions()" style="font-size:11px;">Refresh</button>
+            </h3>
+            <div id="activeUserSummary" style="font-size:12px;color:var(--text3);margin-bottom:12px;"></div>
+            <div id="activeUsersSection"><p class="empty-msg">Loading...</p></div>
+          </div>
+          <div class="card full-width"><h3>Low Stock Alert</h3><div id="lowStock"><p class="empty-msg">All stocks OK ✅</p></div></div>
+        </div>
+      </section>
+
+      <!-- POS -->
+      <section id="page-pos" class="page pos-page">
+        <div class="pos-layout">
+          <div class="pos-products">
+            <div class="pos-search-bar" style="display:flex;gap:8px;">
+              <input type="text" id="posSearch" placeholder="🔍 Search by name or barcode..." oninput="filterPosProducts()" onkeydown="if(event.key==='Enter')searchPos()" style="flex:1;" />
+              <button class="btn-primary" onclick="searchPos()" style="white-space:nowrap;padding:10px 16px;">🔍 Search</button>
+            </div>
+            <div class="pos-grid" id="posGrid"><p class="empty-msg">No products available</p></div>
+          </div>
+          <div class="pos-cart">
+            <div class="cart-header">
+              <h3>🛒 Cart</h3>
+              <button class="btn-sm btn-danger" onclick="clearCart()">Clear</button>
+            </div>
+            <div class="cart-items" id="cartItems"><p class="empty-msg">Cart is empty</p></div>
+            <div class="cart-footer">
+              <div class="cart-total-row"><span>Total</span><span id="cartTotal">₱0.00</span></div>
+              <button class="btn-checkout" onclick="openCheckout()">Checkout</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- INVENTORY -->
+      <section id="page-inventory" class="page">
+        <div class="page-header">
+          <h1>Inventory</h1>
+          <button class="btn-primary admin-only" onclick="openProductModal()">Add Product</button>
+        </div>
+        <div class="search-bar">
+          <input type="text" id="invSearch" placeholder="🔍 Search products..." oninput="filterInventory()" />
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="inventoryTable">
+            <thead>
+              <tr>
+                <th>Barcode</th><th>Name</th><th>Qty (pcs)</th><th>Qty (packs)</th>
+                <th>Price/pc</th><th>Price/pack</th><th>Category</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryBody">
+              <tr><td colspan="8" class="empty-msg">No products yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- CASHIERS/STAFF -->
+      <section id="page-cashiers" class="page">
+        <div class="page-header">
+          <h1>Staff</h1>
+          <button class="btn-primary" onclick="openCashierModal()">Add Staff</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="cashierBody"><tr><td colspan="5" class="empty-msg">No staff yet</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- EXPENSES -->
+      <section id="page-expenses" class="page">
+        <div class="page-header">
+          <h1>Finance</h1>
+          <button class="btn-primary" onclick="openExpenseModal()">Add Record</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th><th>Actions</th></tr></thead>
+            <tbody id="expenseBody"><tr><td colspan="4" class="empty-msg">No records yet</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- RECEIPTS -->
+      <section id="page-receipts" class="page">
+        <div class="page-header"><h1>Receipt Gallery</h1></div>
+        <div class="receipts-grid" id="receiptsGrid"><p class="empty-msg">No receipts yet</p></div>
+      </section>
+
+      <!-- IMPORT PAGE -->
+      <section id="page-import" class="page">
+        <div class="page-header">
+          <h1>Import Inventory</h1>
+        </div>
+
+        <!-- Download Template -->
+        <div class="card" style="max-width:600px;margin-bottom:20px;">
+          <h3>Step 1 — Download Template</h3>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">I-download muna ang template — punan ng products mo, tapos i-upload ulit.</p>
+          <div style="background:#f5f9ff;border:1px solid var(--border);border-radius:8px;padding:14px;font-family:var(--font-mono);font-size:12px;margin-bottom:14px;overflow-x:auto;">
+            barcode | name | qtyPcs | qtyPacks | pricePcs | pricePack | category | unit
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn-primary" onclick="downloadTemplate('csv')">Download CSV Template</button>
+            <button class="btn-ghost" onclick="downloadTemplate('xlsx')">Download Excel Template</button>
+          </div>
+        </div>
+
+        <!-- Upload File -->
+        <div class="card" style="max-width:600px;margin-bottom:20px;">
+          <h3>Step 2 — Upload Your File</h3>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Pwede CSV (.csv) o Excel (.xlsx) — sundin lang ang format ng template.</p>
+          <div id="importDropZone" style="
+            border:2px dashed var(--border);
+            border-radius:12px;
+            padding:40px;
+            text-align:center;
+            cursor:pointer;
+            transition:all .2s;
+            background:#f8fcff;
+          " onclick="document.getElementById('importFileInput').click()"
+             ondragover="handleDragOver(event)"
+             ondrop="handleDrop(event)">
+            <div style="font-size:40px;margin-bottom:10px;"></div>
+            <p style="font-weight:600;color:var(--text2)">Click to browse or drag & drop file here</p>
+            <p style="font-size:12px;color:var(--text3);margin-top:6px">Supports .csv and .xlsx files</p>
+          </div>
+          <input type="file" id="importFileInput" accept=".csv,.xlsx" style="display:none;" onchange="handleFileSelect(event)" />
+          <div id="importFileName" style="margin-top:10px;font-size:13px;color:var(--text2);"></div>
+        </div>
+
+        <!-- Preview -->
+        <div class="card" style="max-width:100%;margin-bottom:20px;" id="importPreviewCard" style="display:none;">
+          <h3>Step 3 — Preview & Confirm</h3>
+          <div id="importStatus" style="margin-bottom:12px;"></div>
+          <div class="table-wrap" id="importPreviewWrap" style="display:none;">
+            <table class="data-table" id="importPreviewTable">
+              <thead>
+                <tr><th>#</th><th>Barcode</th><th>Name</th><th>Qty Pcs</th><th>Qty Packs</th><th>Price/pc</th><th>Price/pack</th><th>Category</th><th>Unit</th><th>Status</th></tr>
+              </thead>
+              <tbody id="importPreviewBody"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;" id="importActionBtns" class="hidden">
+            <button class="btn-success" onclick="confirmImport()">Import All to Inventory</button>
+            <button class="btn-danger" onclick="clearImport()">Clear</button>
+          </div>
+        </div>
+
+        <!-- Result -->
+        <div id="importResult" style="max-width:600px;"></div>
+      </section>
+
+      <!-- SALES SUMMARY -->
+      <section id="page-summary" class="page">
+        <div class="page-header">
+          <h1>Today's Sales Summary</h1>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn-primary" onclick="generateSummary()">Generate Summary</button>
+            <button class="btn-ghost" onclick="downloadSummaryImage()">Download PNG</button>
+            <button class="btn-danger" onclick="resetTodaySummary()">Reset Today</button>
+          </div>
+        </div>
+        <div id="summaryStatus" style="margin-bottom:16px;"></div>
+        <div id="summaryPreviewWrap" style="display:flex;justify-content:center;">
+          <div id="summaryPreview" style="color:var(--text3);text-align:center;padding:60px 0;">
+            <div style="font-size:48px;margin-bottom:12px;">📋</div>
+            <p>I-click ang <strong>"Generate Summary"</strong> para makita ang today's transactions.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="page-settings" class="page">
+        <div class="page-header"><h1>Settings</h1></div>
+        <div class="card settings-card">
+          <h3>Google Apps Script</h3>
+          <label>Web App URL</label>
+          <input type="url" id="settingsGasUrl" placeholder="https://script.google.com/macros/s/..." />
+          <div class="modal-actions" style="margin-top:14px;">
+            <button class="btn-primary" onclick="saveGasUrl()">Save URL</button>
+            <button class="btn-ghost" onclick="testConnection()">Test Connection</button>
+          </div>
+        </div>
+        <div class="card settings-card" style="margin-top:18px;">
+          <h3>Store Info</h3>
+          <label>Store Name</label>
+          <input type="text" id="settingsStoreName" placeholder="AE Home Store" />
+          <label>Address</label>
+          <input type="text" id="settingsAddress" placeholder="Alcantara Street, Brgy VIII, City of Vigan" />
+          <label>VAT Reg TIN</label>
+          <input type="text" id="settingsTin" placeholder="010-948-695-00000" />
+          <div class="modal-actions" style="margin-top:14px;">
+            <button class="btn-primary" onclick="saveStoreInfo()">Save</button>
+          </div>
+        </div>
+        <div class="card settings-card" style="margin-top:18px;">
+          <h3>Photos</h3>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">I-customize ang profile at cover photo ng app.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn-primary" onclick="openProfilePhotoUpload()">Change Profile Photo</button>
+            <button class="btn-ghost" onclick="openCoverPhotoUpload()">Change Cover Photo</button>
+          </div>
+        </div>
+
+        <div class="card settings-card" style="margin-top:18px;">
+          <h3>Danger Zone</h3>
+          <button class="btn-danger" onclick="clearLocalData()">Clear Local Cache</button>
+        </div>
+
+        <div class="card" style="max-width:520px;margin-top:18px;">
+          <h3>Backup & Restore</h3>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+            Gumawa ng backup ng lahat ng data sa Google Sheets. Pwede i-restore anytime kung may mabura.
+          </p>
+          <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+            <button class="btn-primary" onclick="createManualBackup()">Create Backup Now</button>
+            <button class="btn-ghost" onclick="loadBackups()">Refresh List</button>
+          </div>
+          <div id="backupList"><p class="empty-msg">I-click ang "Refresh List" para makita ang mga backup</p></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<canvas id="receiptCanvas" style="display:none;"></canvas>
+<script src="app.js"></script>
+</body>
+</html>
