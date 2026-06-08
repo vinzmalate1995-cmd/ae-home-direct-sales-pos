@@ -125,15 +125,20 @@ async function gasRequest(action, payload = {}) {
   if (isGuest() && GUEST_BLOCKED_ACTIONS.includes(action)) {
     return { ok: true, guest: true };
   }
-  // Read actions still work for guest (getProducts, getSales, etc.)
   if (!GAS_URL) return { ok: false, error: 'No GAS URL' };
   try {
     const res = await fetch(GAS_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action, ...payload }),
     });
-    return await res.json();
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch(e) {
+      return { ok: false, error: 'Invalid response: ' + text.substring(0,100) };
+    }
   } catch(e) { setOffline(true); return { ok: false, error: e.message }; }
 }
 function setOffline(v) {
